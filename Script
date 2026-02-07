@@ -1,0 +1,337 @@
+-- SERVICES
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+local TeleportService = game:GetService("TeleportService")
+local LP = Players.LocalPlayer
+local Char = LP.Character or LP.CharacterAdded:Wait()
+local Humanoid = Char:WaitForChild("Humanoid")
+local HRP = Char:WaitForChild("HumanoidRootPart")
+
+-- ================= GUI =================
+local ScreenGui = Instance.new("ScreenGui", LP.PlayerGui)
+ScreenGui.Name = "WindySide"
+ScreenGui.ResetOnSpawn = false
+
+-- OPEN / CLOSE BUTTON
+local ToggleBtn = Instance.new("TextButton", ScreenGui)
+ToggleBtn.Size = UDim2.new(0,120,0,35)
+ToggleBtn.Position = UDim2.new(0.9,-120,0.05,0)
+ToggleBtn.Text = "WindySide"
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.TextSize = 16
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(40,40,40)
+ToggleBtn.TextColor3 = Color3.fromRGB(0,200,255)
+Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0,8)
+
+-- MAIN FRAME
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 500, 0, 500)
+MainFrame.Position = UDim2.new(0.5, -250, 0.3, -250)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25,25,25)
+MainFrame.BorderSizePixel = 0
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0,12)
+MainFrame.Visible = true
+
+-- DRAGGING
+local dragging, dragStart, startPos
+MainFrame.InputBegan:Connect(function(i)
+	if i.UserInputType==Enum.UserInputType.MouseButton1 then
+		dragging = true
+		dragStart = i.Position
+		startPos = MainFrame.Position
+		i.Changed:Connect(function()
+			if i.UserInputState==Enum.UserInputState.End then dragging=false end
+		end)
+	end
+end)
+UserInputService.InputChanged:Connect(function(i)
+	if dragging and i.UserInputType==Enum.UserInputType.MouseMovement then
+		local delta = i.Position - dragStart
+		MainFrame.Position = UDim2.new(
+			startPos.X.Scale, startPos.X.Offset + delta.X,
+			startPos.Y.Scale, startPos.Y.Offset + delta.Y
+		)
+	end
+end)
+
+-- AVATAR
+local Avatar = Instance.new("ImageLabel", MainFrame)
+Avatar.Size = UDim2.new(0,80,0,80)
+Avatar.Position = UDim2.new(0,10,0,10)
+Avatar.BackgroundTransparency = 1
+Avatar.Image = "https://www.roblox.com/headshot-thumbnail/image?userId="..LP.UserId.."&width=420&height=420&format=png"
+
+-- TITLE RGB
+local Title = Instance.new("TextLabel", MainFrame)
+Title.Size = UDim2.new(1, -100, 0, 50)
+Title.Position = UDim2.new(0, 100, 0, 10)
+Title.BackgroundTransparency = 1
+Title.Text = "WindySide"
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 28
+
+-- WELCOME
+local Welcome = Instance.new("TextLabel", MainFrame)
+Welcome.Size = UDim2.new(1, -20, 0, 30)
+Welcome.Position = UDim2.new(0,10,0,90)
+Welcome.BackgroundTransparency = 1
+Welcome.Text = "Welcome "..LP.Name.."!"
+Welcome.Font = Enum.Font.GothamBold
+Welcome.TextSize = 20
+Welcome.TextColor3 = Color3.fromRGB(200,200,200)
+
+-- FEEDBACK LABEL
+local FeedbackLabel = Instance.new("TextLabel", MainFrame)
+FeedbackLabel.Size = UDim2.new(1,-20,0,20)
+FeedbackLabel.Position = UDim2.new(0,10,0,450)
+FeedbackLabel.BackgroundTransparency = 1
+FeedbackLabel.Text = ""
+FeedbackLabel.Font = Enum.Font.GothamBold
+FeedbackLabel.TextSize = 16
+FeedbackLabel.TextColor3 = Color3.fromRGB(255,255,0)
+FeedbackLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- COMMAND BOX
+local CommandBox = Instance.new("TextBox", MainFrame)
+CommandBox.Size = UDim2.new(1,-20,0,30)
+CommandBox.Position = UDim2.new(0,10,0,420)
+CommandBox.PlaceholderText = 'w/ "command"'
+CommandBox.Font = Enum.Font.Gotham
+CommandBox.TextSize = 16
+CommandBox.BackgroundColor3 = Color3.fromRGB(30,30,30)
+CommandBox.TextColor3 = Color3.fromRGB(255,255,255)
+CommandBox.BorderSizePixel = 0
+Instance.new("UICorner", CommandBox).CornerRadius = UDim.new(0,6)
+
+-- PAGE BUTTONS
+local Pages = {"Commands","Player Tools","Misc"}
+local PageButtons = {}
+local CurrentPage = "Commands"
+
+for i,page in ipairs(Pages) do
+	local btn = Instance.new("TextButton", MainFrame)
+	btn.Size = UDim2.new(0,120,0,30)
+	btn.Position = UDim2.new(0,10+(i-1)*130,0,130)
+	btn.Text = page
+	btn.Font = Enum.Font.GothamBold
+	btn.TextSize = 16
+	btn.BackgroundColor3 = Color3.fromRGB(50,50,50)
+	btn.TextColor3 = Color3.fromRGB(255,255,255)
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0,6)
+	PageButtons[page] = btn
+	
+	btn.MouseButton1Click:Connect(function()
+		CurrentPage = page
+		UpdateCommandList()
+	end)
+end
+
+-- SCROLLING COMMAND LIST
+local ScrollFrame = Instance.new("ScrollingFrame", MainFrame)
+ScrollFrame.Size = UDim2.new(1,-20,0,250)
+ScrollFrame.Position = UDim2.new(0,10,0,170)
+ScrollFrame.BackgroundTransparency = 1
+ScrollFrame.ScrollBarThickness = 10
+ScrollFrame.CanvasSize = UDim2.new(0,0,0,0)
+ScrollFrame.VerticalScrollBarInset = Enum.ScrollBarInset.Always
+
+-- COMMAND TABLE
+local flying=false
+local flySpeed=50
+local flyKeys={W=false,A=false,S=false,D=false,Space=false,LeftShift=false}
+local noclip=false
+local espEnabled=false
+local espObjects={}
+local clickTP=false
+local flyConnection
+
+local Commands={}
+
+-- ========== COMMAND LOGIC ==========
+-- Keyboard for fly
+UserInputService.InputBegan:Connect(function(i)
+	if i.UserInputType==Enum.UserInputType.Keyboard then flyKeys[i.KeyCode.Name]=true end
+end)
+UserInputService.InputEnded:Connect(function(i)
+	if i.UserInputType==Enum.UserInputType.Keyboard then flyKeys[i.KeyCode.Name]=false end
+end)
+
+-- Fly
+Commands.fly=function()
+	if flying then return end
+	flying=true
+	if flyConnection then flyConnection:Disconnect() end
+	flyConnection = RunService.RenderStepped:Connect(function(delta)
+		if not flying then return end
+		local move=Vector3.new()
+		local cam=workspace.CurrentCamera
+		if flyKeys.W then move = move + cam.CFrame.LookVector end
+		if flyKeys.S then move = move - cam.CFrame.LookVector end
+		if flyKeys.A then move = move - cam.CFrame.RightVector end
+		if flyKeys.D then move = move + cam.CFrame.RightVector end
+		if flyKeys.Space then move = move + Vector3.new(0,1,0) end
+		if flyKeys.LeftShift then move = move - Vector3.new(0,1,0) end
+		if move.Magnitude>0 then HRP.Velocity = move.Unit*flySpeed end
+	end)
+end
+Commands.unfly=function()
+	flying=false
+	if flyConnection then flyConnection:Disconnect() end
+	HRP.Velocity = Vector3.new(0,0,0)
+end
+
+-- Speed/Jump/Noclip
+Commands.speed=function(n) Humanoid.WalkSpeed=tonumber(n) or 16 end
+Commands.jump=function(n) Humanoid.JumpPower=tonumber(n) or 50 Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
+Commands.noclip=function() noclip=true end
+Commands.clip=function() noclip=false end
+RunService.Stepped:Connect(function()
+	if noclip then
+		for _,v in pairs(Char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide=false end end
+	end
+end)
+
+-- Server/Player
+Commands.rejoin=function() TeleportService:Teleport(game.PlaceId, LP) end
+Commands.panic=function() ScreenGui:Destroy() end
+Commands.exit=function() ScreenGui:Destroy() end
+Commands.goto=function(name)
+	local pl=Players:FindFirstChild(name)
+	if pl and pl.Character and pl.Character:FindFirstChild("HumanoidRootPart") then
+		HRP.CFrame = pl.Character.HumanoidRootPart.CFrame + Vector3.new(0,3,0)
+	end
+end
+Commands.tpall=function()
+	for _,pl in pairs(Players:GetPlayers()) do
+		if pl~=LP and pl.Character and pl.Character:FindFirstChild("HumanoidRootPart") then
+			pl.Character.HumanoidRootPart.CFrame=HRP.CFrame+Vector3.new(math.random(-5,5),0,math.random(-5,5))
+		end
+	end
+end
+
+-- ESP (Boxes + Names + Health + Tracer)
+Commands.esp=function()
+	espEnabled=not espEnabled
+	if espEnabled then
+		for _,pl in pairs(Players:GetPlayers()) do
+			if pl~=LP and pl.Character and pl.Character:FindFirstChild("HumanoidRootPart") then
+				local adornee = pl.Character.HumanoidRootPart
+				-- Box
+				local box = Instance.new("BoxHandleAdornment")
+				box.Adornee=adornee
+				box.Size=Vector3.new(2,5,1)
+				box.Color3=Color3.fromRGB(255,0,0)
+				box.AlwaysOnTop=true
+				box.ZIndex=10
+				box.Parent=Workspace
+				-- Name & Health
+				local nameBillboard=Instance.new("BillboardGui",adornee)
+				nameBillboard.Adornee=adornee
+				nameBillboard.Size=UDim2.new(0,100,0,40)
+				nameBillboard.StudsOffset=Vector3.new(0,3,0)
+				nameBillboard.AlwaysOnTop=true
+				local nameLabel=Instance.new("TextLabel",nameBillboard)
+				nameLabel.Size=UDim2.new(1,0,1,0)
+				nameLabel.BackgroundTransparency=1
+				nameLabel.Text=pl.Name
+				nameLabel.TextColor3=Color3.fromRGB(0,255,0)
+				nameLabel.TextScaled=true
+				nameLabel.Font=Enum.Font.GothamBold
+				-- Health Bar
+				local healthBar=Instance.new("BillboardGui",adornee)
+				healthBar.Adornee=adornee
+				healthBar.Size=UDim2.new(0,50,0,5)
+				healthBar.StudsOffset=Vector3.new(0,2.5,0)
+				healthBar.AlwaysOnTop=true
+				local bar=Instance.new("Frame",healthBar)
+				bar.Size=UDim2.new(pl.Character.Humanoid.Health/pl.Character.Humanoid.MaxHealth,0,1,0)
+				bar.BackgroundColor3=Color3.fromRGB(0,255,0)
+				bar.BorderSizePixel=0
+				-- Tracer
+				local tracer=Instance.new("Beam")
+				local att0=Instance.new("Attachment",HRP)
+				local att1=Instance.new("Attachment",adornee)
+				tracer.Attachment0=att0
+				tracer.Attachment1=att1
+				tracer.Color=ColorSequence.new(Color3.fromRGB(255,0,0))
+				tracer.Width0=0.05
+				tracer.Width1=0.05
+				tracer.FaceCamera=true
+				tracer.Parent=HRP
+				table.insert(espObjects,{box,nameBillboard,healthBar,tracer,att0,att1})
+			end
+		end
+	else
+		for _,obj in pairs(espObjects) do
+			for _,o in pairs(obj) do pcall(function() o:Destroy() end) end
+		end
+		espObjects={}
+	end
+end
+
+-- CLICKTP
+Commands.clicktp=function() clickTP=not clickTP end
+UserInputService.InputBegan:Connect(function(input)
+	if input.UserInputType==Enum.UserInputType.MouseButton1 and clickTP then
+		local ray=workspace.CurrentCamera:ScreenPointToRay(input.Position.X,input.Position.Y)
+		local result=Workspace:Raycast(ray.Origin,ray.Direction*1000)
+		if result and result.Position then HRP.CFrame=CFrame.new(result.Position+Vector3.new(0,3,0)) end
+	end
+end)
+
+-- RGB TITLE
+local hue=0
+RunService.RenderStepped:Connect(function(dt)
+	hue=(hue+dt*0.5)%1
+	Title.TextColor3 = Color3.fromHSV(hue,1,1)
+end)
+
+-- ========== MULTI-PAGE COMMAND LIST ==========
+local AllCommands = {
+	["Commands"] = {"fly","unfly","noclip","clip","speed [num]","jump [num]","rejoin","panic","exit","esp","clicktp"},
+	["Player Tools"] = {"goto [player]","tpall","rejoin","speed [num]","jump [num]"},
+	["Misc"] = {"toggle GUI","more coming...","panic","exit","clicktp"}
+}
+
+function UpdateCommandList()
+	for _,c in pairs(ScrollFrame:GetChildren()) do if c:IsA("TextLabel") then c:Destroy() end end
+	local y=0
+	for _,c in pairs(AllCommands[CurrentPage]) do
+		local lbl = Instance.new("TextLabel", ScrollFrame)
+		lbl.Size = UDim2.new(1,-10,0,25)
+		lbl.Position = UDim2.new(0,5,0,y)
+		lbl.BackgroundTransparency = 1
+		lbl.Text = c
+		lbl.Font = Enum.Font.Gotham
+		lbl.TextSize = 16
+		lbl.TextColor3 = Color3.fromRGB(180,180,180)
+		lbl.TextXAlignment = Enum.TextXAlignment.Left
+		y = y + 30
+	end
+	ScrollFrame.CanvasSize = UDim2.new(0,0,0,y)
+end
+UpdateCommandList()
+
+-- ================= EXECUTE COMMAND w/ prefix =================
+CommandBox.FocusLost:Connect(function(enter)
+	if not enter then return end
+	local text=CommandBox.Text
+	if text:sub(1,2)=="w/" then text=text:sub(3) end
+	local args=string.split(text," ")
+	local cmd=string.lower(args[1])
+	table.remove(args,1)
+	if Commands[cmd] then
+		pcall(function() Commands[cmd](unpack(args)) end)
+		FeedbackLabel.Text="Executed command: "..cmd
+	else
+		FeedbackLabel.Text="Invalid command: "..cmd
+	end
+	CommandBox.Text=""
+end)
+
+-- OPEN / CLOSE
+ToggleBtn.MouseButton1Click:Connect(function()
+	MainFrame.Visible = not MainFrame.Visible
+end)
