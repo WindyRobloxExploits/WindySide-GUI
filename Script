@@ -308,12 +308,13 @@ VerLabel.Position = UDim2.new(0, 0, 0, 444)
 -- ============================================================
 -- MAIN GUI  — hidden until EnterBtn is clicked
 -- ============================================================
-local guiW      = isMobile and 310 or 295
-local guiH      = isMobile and 600 or 590
-local titleBarH = isMobile and 44  or 38
-local tabBarH   = isMobile and 38  or 32
-local contentTop= titleBarH + tabBarH + 14
-local btnSz     = isMobile and 32  or 26
+local guiW       = isMobile and 310 or 295
+local guiH       = isMobile and 630 or 620
+local titleBarH  = isMobile and 44  or 38
+local targetBarH = isMobile and 36  or 30
+local tabBarH    = isMobile and 38  or 32
+local contentTop = 5 + titleBarH + targetBarH + 8 + tabBarH + 6
+local btnSz      = isMobile and 32  or 26
 
 local MainGui = Instance.new("Frame")
 MainGui.Name             = "MainGui"
@@ -347,6 +348,145 @@ TitleBar.BorderSizePixel  = 0
 TitleBar.ZIndex           = 101
 TitleBar.Parent           = MainGui
 mkCorner(TitleBar, 0)
+
+-- ============================================================
+-- TARGET BAR
+-- ============================================================
+State.Target = nil  -- currently locked player
+
+local TargetBar = Instance.new("Frame")
+TargetBar.Size             = UDim2.new(1, -16, 0, targetBarH)
+TargetBar.Position         = UDim2.new(0, 8, 0, 5 + titleBarH + 2)
+TargetBar.BackgroundColor3 = Color3.fromRGB(14, 10, 28)
+TargetBar.BorderSizePixel  = 0
+TargetBar.ZIndex           = 101
+TargetBar.Parent           = MainGui
+mkCorner(TargetBar, 8)
+mkStroke(TargetBar, Color3.fromRGB(60, 35, 110), 1, 0.5)
+
+-- Lock icon label
+local LockIcon = newLabel(TargetBar, "🎯", Enum.Font.GothamBold, isMobile and 14 or 13, Color3.fromRGB(180,130,255), 102)
+LockIcon.Size     = UDim2.new(0, 22, 1, 0)
+LockIcon.Position = UDim2.new(0, 5, 0, 0)
+
+-- Target input box
+local TargetBox = Instance.new("TextBox")
+TargetBox.Size             = UDim2.new(1, -90, 1, -8)
+TargetBox.Position         = UDim2.new(0, 28, 0, 4)
+TargetBox.BackgroundTransparency = 1
+TargetBox.BorderSizePixel  = 0
+TargetBox.Text             = ""
+TargetBox.PlaceholderText  = "Target username..."
+TargetBox.PlaceholderColor3 = Color3.fromRGB(80, 55, 120)
+TargetBox.Font             = Enum.Font.Gotham
+TargetBox.TextSize         = isMobile and 13 or 12
+TargetBox.TextColor3       = Color3.fromRGB(220, 190, 255)
+TargetBox.ClearTextOnFocus = false
+TargetBox.TextXAlignment   = Enum.TextXAlignment.Left
+TargetBox.ZIndex           = 102
+TargetBox.Active           = true
+TargetBox.Parent           = TargetBar
+
+-- Status pill (shows "LOCKED" / "NO TARGET" / player name)
+local TargetPill = Instance.new("Frame")
+TargetPill.Size             = UDim2.new(0, 58, 0, isMobile and 22 or 18)
+TargetPill.Position         = UDim2.new(1, -64, 0.5, isMobile and -11 or -9)
+TargetPill.BackgroundColor3 = Color3.fromRGB(35, 25, 65)
+TargetPill.BorderSizePixel  = 0
+TargetPill.ZIndex           = 102
+TargetPill.Parent           = TargetBar
+mkCorner(TargetPill, 9)
+
+local TargetPillLbl = newLabel(TargetPill, "NONE", Enum.Font.GothamBold,
+    isMobile and 9 or 8, Color3.fromRGB(130, 100, 180), 103)
+TargetPillLbl.Size     = UDim2.new(1, 0, 1, 0)
+TargetPillLbl.Position = UDim2.new(0, 0, 0, 0)
+
+-- Helper: find player by name or display name
+local function findTarget(input)
+    if not input or input == "" then return nil end
+    input = input:lower():gsub("^%s+", ""):gsub("%s+$", "")
+    local best, bestLen = nil, math.huge
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LP then
+            local n = p.Name:lower()
+            local d = p.DisplayName:lower()
+            if n == input or d == input then return p end  -- exact match wins
+            if n:sub(1, #input) == input or d:sub(1, #input) == input then
+                local l = math.min(#n, #d)
+                if l < bestLen then bestLen = l; best = p end
+            end
+        end
+    end
+    return best
+end
+
+local function setTarget(p)
+    State.Target = p
+    if p then
+        TargetBox.Text             = p.Name
+        TargetBox.TextColor3       = Color3.fromRGB(140, 255, 160)
+        TargetPill.BackgroundColor3 = Color3.fromRGB(30, 80, 40)
+        TargetPillLbl.Text         = "LOCKED"
+        TargetPillLbl.TextColor3   = Color3.fromRGB(100, 255, 140)
+        mkStroke(TargetBar, Color3.fromRGB(60, 200, 100), 1, 0.3)
+        -- Auto-clear if that player leaves
+        local conn; conn = Players.PlayerRemoving:Connect(function(leaving)
+            if leaving == p then
+                State.Target = nil
+                TargetBox.Text              = ""
+                TargetBox.TextColor3        = Color3.fromRGB(220, 190, 255)
+                TargetPill.BackgroundColor3 = Color3.fromRGB(35, 25, 65)
+                TargetPillLbl.Text          = "NONE"
+                TargetPillLbl.TextColor3    = Color3.fromRGB(130, 100, 180)
+                mkStroke(TargetBar, Color3.fromRGB(60, 35, 110), 1, 0.5)
+                conn:Disconnect()
+            end
+        end)
+    else
+        TargetBox.Text              = ""
+        TargetBox.TextColor3        = Color3.fromRGB(220, 190, 255)
+        TargetPill.BackgroundColor3 = Color3.fromRGB(35, 25, 65)
+        TargetPillLbl.Text          = "NONE"
+        TargetPillLbl.TextColor3    = Color3.fromRGB(130, 100, 180)
+        mkStroke(TargetBar, Color3.fromRGB(60, 35, 110), 1, 0.5)
+    end
+end
+
+-- Confirm target on focus lost or enter key
+TargetBox.FocusLost:Connect(function(enter)
+    local t = findTarget(TargetBox.Text)
+    if TargetBox.Text == "" then
+        setTarget(nil)
+    elseif t then
+        setTarget(t)
+    else
+        -- Not found — flash red
+        tw(TargetBar, {BackgroundColor3 = Color3.fromRGB(60, 12, 18)}, 0.1)
+        task.delay(0.3, function()
+            tw(TargetBar, {BackgroundColor3 = Color3.fromRGB(14, 10, 28)}, 0.2)
+        end)
+        TargetPill.BackgroundColor3 = Color3.fromRGB(80, 20, 20)
+        TargetPillLbl.Text          = "??"
+        TargetPillLbl.TextColor3    = Color3.fromRGB(255, 100, 100)
+        mkStroke(TargetBar, Color3.fromRGB(200, 50, 50), 1, 0.3)
+    end
+end)
+
+-- Auto-suggest as they type (partial match preview)
+TargetBox:GetPropertyChangedSignal("Text"):Connect(function()
+    if TargetBox.Text == "" then
+        if State.Target then setTarget(nil) end
+        return
+    end
+    local t = findTarget(TargetBox.Text)
+    if t then
+        TargetPillLbl.Text         = t.Name:sub(1, 6)
+        TargetPillLbl.TextColor3   = Color3.fromRGB(160, 220, 255)
+        TargetPill.BackgroundColor3 = Color3.fromRGB(20, 30, 55)
+    end
+end)
+
 
 local Title = newLabel(TitleBar, "⚡ WindySide v5", Enum.Font.GothamBlack,
     isMobile and 16 or 15, Color3.fromRGB(255,255,255), 102)
@@ -383,7 +523,7 @@ mkCorner(CloseBtn, btnSz/2)
 
 local Sep = Instance.new("Frame")
 Sep.Size                = UDim2.new(1, -16, 0, 1)
-Sep.Position            = UDim2.new(0, 8, 0, titleBarH + 5)
+Sep.Position            = UDim2.new(0, 8, 0, 5 + titleBarH + targetBarH + 4)
 Sep.BackgroundColor3    = Color3.fromRGB(80, 40, 140)
 Sep.BackgroundTransparency = 0.5
 Sep.BorderSizePixel     = 0
@@ -392,7 +532,7 @@ Sep.Parent              = MainGui
 
 local TabBar = Instance.new("Frame")
 TabBar.Size             = UDim2.new(1, -16, 0, tabBarH)
-TabBar.Position         = UDim2.new(0, 8, 0, titleBarH + 7)
+TabBar.Position         = UDim2.new(0, 8, 0, 5 + titleBarH + targetBarH + 7)
 TabBar.BackgroundTransparency = 1
 TabBar.BorderSizePixel  = 0
 TabBar.ZIndex           = 101
@@ -620,9 +760,9 @@ local function doSearch(q)
             lbl.Size = UDim2.new(1, -20, 1, 0)
             lbl.Position = UDim2.new(0, 14, 0, 0)
             lbl.TextXAlignment = Enum.TextXAlignment.Left
-            local realBtn = h.frame
+            local invokeHack = h.invoke
             proxy.MouseButton1Click:Connect(function()
-                realBtn.MouseButton1Click:Fire()
+                invokeHack()
             end)
             n = n + 1
             if n >= 30 then break end
@@ -706,7 +846,18 @@ local function mkToggle(page, label, callback)
         pcall(callback, on)
     end)
 
-    table.insert(allHacks, { label = label, frame = btn })
+    local function invokeToggle()
+        on = not on
+        tw(pill, {BackgroundColor3 = on and Color3.fromRGB(110,40,220) or Color3.fromRGB(45,35,75)}, 0.2)
+        tw(knob, {
+            Position         = on and knobOn or knobOff,
+            BackgroundColor3 = on and Color3.fromRGB(255,255,255) or Color3.fromRGB(160,130,210)
+        }, 0.2)
+        tw(lbl,  {TextColor3 = on and Color3.fromRGB(225,190,255) or Color3.fromRGB(200,175,230)}, 0.2)
+        tw(btn,  {BackgroundColor3 = on and Color3.fromRGB(20,14,40) or Color3.fromRGB(15,11,30)}, 0.2)
+        pcall(callback, on)
+    end
+    table.insert(allHacks, { label = label, frame = btn, invoke = invokeToggle })
     return btn
 end
 
@@ -7488,8 +7639,428 @@ end)
 
 
 
--- ============================================================
+mkSection(MiscP, "🖐️  Grab Tool")
+mkToggle(MiscP, "Grab Tool (Click=Grab | F=Throw | RClick=Drop | Z/X=Depth)", function(on)
+    -- Cleanup previous session
+    if Connections.GrabHB      then Connections.GrabHB:Disconnect();      Connections.GrabHB = nil      end
+    if Connections.GrabScan    then Connections.GrabScan:Disconnect();     Connections.GrabScan = nil    end
+    if Connections.GrabInput   then Connections.GrabInput:Disconnect();    Connections.GrabInput = nil   end
+    if Connections.GrabTouchS  then Connections.GrabTouchS:Disconnect();   Connections.GrabTouchS = nil  end
+    if Connections.GrabTouchM  then Connections.GrabTouchM:Disconnect();   Connections.GrabTouchM = nil  end
+    if Connections.GrabTouchE  then Connections.GrabTouchE:Disconnect();   Connections.GrabTouchE = nil  end
+
+    pcall(function()
+        for _, v in pairs(LP:WaitForChild("Backpack"):GetChildren()) do
+            if v.Name == "Grab" then v:Destroy() end
+        end
+        if Char then
+            for _, v in pairs(Char:GetChildren()) do
+                if v.Name == "Grab" then v:Destroy() end
+            end
+        end
+    end)
+    pcall(function()
+        for _, v in pairs(game:GetService("CoreGui"):GetChildren()) do
+            if v.Name == "GrabToolGUI" then v:Destroy() end
+        end
+        if LP.PlayerGui then
+            for _, v in pairs(LP.PlayerGui:GetChildren()) do
+                if v.Name == "GrabToolGUI" then v:Destroy() end
+            end
+        end
+    end)
+
+    if not on then return end
+    if not Char then return end
+
+    -- ── Settings ──────────────────────────────────────────────
+    local throwForce     = 80
+    local throwUpForce   = 20
+    local grabRange      = 60
+    local holdDepth      = 15
+    local currentDepth   = holdDepth
+    local depthMin       = 3
+    local depthMax       = 100
+    local depthStep      = 0.4
+    local mobilePullClose = false
+    local mobilePushFar   = false
+
+    -- ── State ─────────────────────────────────────────────────
+    local heldPart         = nil
+    local origCollision    = {}
+    local bodyVelocity     = nil
+    local bodyGyro         = nil
+    local grabGui          = nil
+    local statusLabel      = nil
+    local toolEquipped     = false
+    local touchPos         = Vector2.new(0, 0)
+    local highlights       = {}
+
+    -- ── Highlight helpers ─────────────────────────────────────
+    local function isLoosePart(part)
+        if not part or not part:IsA("BasePart") then return false end
+        if part.Anchored then return false end
+        if not part.Parent then return false end
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p.Character and part:IsDescendantOf(p.Character) then return false end
+        end
+        if part:FindFirstAncestorOfClass("Tool") then return false end
+        return true
+    end
+
+    local function addHL(part)
+        if highlights[part] then return end
+        local sel = Instance.new("SelectionBox")
+        sel.Adornee             = part
+        sel.Color3              = Color3.fromRGB(255, 80, 0)
+        sel.LineThickness       = 0.04
+        sel.SurfaceTransparency = 0.8
+        sel.SurfaceColor3       = Color3.fromRGB(255, 140, 0)
+        sel.Parent              = Workspace
+        highlights[part]        = sel
+    end
+
+    local function removeHL(part)
+        if highlights[part] then highlights[part]:Destroy(); highlights[part] = nil end
+    end
+
+    local function clearHL()
+        for _, sel in pairs(highlights) do pcall(function() sel:Destroy() end) end
+        highlights = {}
+    end
+
+    local function startScanner()
+        local tick = 0
+        Connections.GrabScan = RunService.Heartbeat:Connect(function(dt)
+            tick += dt
+            if tick < 0.5 then return end
+            tick = 0
+            if not toolEquipped then return end
+            local rootPart = Char and Char:FindFirstChild("HumanoidRootPart")
+            if not rootPart then return end
+            local current = {}
+            for _, obj in ipairs(Workspace:GetPartBoundsInRadius(rootPart.Position, grabRange + 20)) do
+                if isLoosePart(obj) and obj ~= heldPart then current[obj] = true end
+            end
+            for part in pairs(current) do addHL(part) end
+            for part in pairs(highlights) do
+                if not current[part] then removeHL(part) end
+            end
+        end)
+    end
+
+    local function stopScanner()
+        if Connections.GrabScan then Connections.GrabScan:Disconnect(); Connections.GrabScan = nil end
+        clearHL()
+    end
+
+    -- ── GUI ───────────────────────────────────────────────────
+    local function createGUI()
+        if grabGui then grabGui:Destroy() end
+        grabGui = Instance.new("ScreenGui")
+        grabGui.Name         = "GrabToolGUI"
+        grabGui.ResetOnSpawn = false
+        pcall(function() grabGui.Parent = game:GetService("CoreGui") end)
+        if not grabGui.Parent then grabGui.Parent = LP:WaitForChild("PlayerGui") end
+
+        local frame = Instance.new("Frame")
+        frame.Size             = UDim2.new(0, 230, 0, isMobile and 210 or 190)
+        frame.Position         = UDim2.new(0, 12, 1, isMobile and -222 or -202)
+        frame.AnchorPoint      = Vector2.new(0, 1)
+        frame.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+        frame.BackgroundTransparency = 0.1
+        frame.BorderSizePixel  = 0
+        frame.Parent           = grabGui
+        Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
+        local fStroke = Instance.new("UIStroke", frame)
+        fStroke.Color = Color3.fromRGB(255, 80, 0); fStroke.Thickness = 1.5; fStroke.Transparency = 0.35
+
+        local titleBar = Instance.new("Frame")
+        titleBar.Size             = UDim2.new(1, 0, 0, 32)
+        titleBar.BackgroundColor3 = Color3.fromRGB(255, 80, 0)
+        titleBar.BackgroundTransparency = 0.15
+        titleBar.BorderSizePixel  = 0
+        titleBar.Parent           = frame
+        Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 10)
+        local fix = Instance.new("Frame"); fix.Size = UDim2.new(1,0,0.5,0); fix.Position = UDim2.new(0,0,0.5,0)
+        fix.BackgroundColor3 = Color3.fromRGB(255,80,0); fix.BackgroundTransparency = 0.15
+        fix.BorderSizePixel = 0; fix.Parent = titleBar
+        local titleLbl = Instance.new("TextLabel")
+        titleLbl.Text = "⚡ GRAB TOOL"; titleLbl.Size = UDim2.new(1,0,1,0)
+        titleLbl.BackgroundTransparency = 1; titleLbl.TextColor3 = Color3.fromRGB(255,255,255)
+        titleLbl.Font = Enum.Font.GothamBold; titleLbl.TextSize = 13; titleLbl.Parent = titleBar
+
+        local sLbl = Instance.new("TextLabel")
+        sLbl.Name = "Status"; sLbl.Text = "Status: Idle"
+        sLbl.Size = UDim2.new(1,-10,0,18); sLbl.Position = UDim2.new(0,5,0,36)
+        sLbl.BackgroundTransparency = 1; sLbl.TextColor3 = Color3.fromRGB(100,255,100)
+        sLbl.Font = Enum.Font.Gotham; sLbl.TextSize = 11
+        sLbl.TextXAlignment = Enum.TextXAlignment.Left; sLbl.Parent = frame
+        statusLabel = sLbl
+
+        local hintLbl = Instance.new("TextLabel")
+        hintLbl.Text = isMobile
+            and "Tap=Grab | Drag=Move | Lift=Throw | ◀▶=Depth"
+            or  "Click=Grab | F=Throw | RClick=Drop | Z/X=Depth"
+        hintLbl.Size = UDim2.new(1,-10,0,14); hintLbl.Position = UDim2.new(0,5,0,54)
+        hintLbl.BackgroundTransparency = 1; hintLbl.TextColor3 = Color3.fromRGB(130,130,150)
+        hintLbl.Font = Enum.Font.Gotham; hintLbl.TextSize = 10
+        hintLbl.TextXAlignment = Enum.TextXAlignment.Left; hintLbl.Parent = frame
+
+        local function makeRow(label, val, y, minV, maxV, cb)
+            local lbl = Instance.new("TextLabel")
+            lbl.Text = label; lbl.Size = UDim2.new(0.56,0,0,18); lbl.Position = UDim2.new(0,8,0,y)
+            lbl.BackgroundTransparency = 1; lbl.TextColor3 = Color3.fromRGB(200,200,200)
+            lbl.Font = Enum.Font.Gotham; lbl.TextSize = 11
+            lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Parent = frame
+            local box = Instance.new("TextBox")
+            box.Size = UDim2.new(0.35,0,0,22); box.Position = UDim2.new(0.62,0,0,y-2)
+            box.Text = tostring(val); box.BackgroundColor3 = Color3.fromRGB(45,45,55)
+            box.TextColor3 = Color3.fromRGB(255,180,80); box.Font = Enum.Font.GothamBold
+            box.TextSize = 12; box.ClearTextOnFocus = false; box.BorderSizePixel = 0; box.Parent = frame
+            Instance.new("UICorner", box).CornerRadius = UDim.new(0, 5)
+            box.FocusLost:Connect(function()
+                local v = tonumber(box.Text)
+                if v and v >= minV and v <= maxV then cb(v) else box.Text = tostring(val) end
+            end)
+        end
+
+        makeRow("Throw Force:",  throwForce,   76,  1, 500, function(v) throwForce = v end)
+        makeRow("Up Force:",     throwUpForce, 104, 0, 200, function(v) throwUpForce = v end)
+        makeRow("Grab Range:",   grabRange,    132, 5, 200, function(v) grabRange = v end)
+        makeRow("Hold Depth:",   holdDepth,    160, 2, 100, function(v) holdDepth = v; currentDepth = v end)
+
+        if isMobile then
+            local function makeDepthBtn(text, xPos, onDown, onUp)
+                local btn = Instance.new("TextButton")
+                btn.Size = UDim2.new(0,58,0,58); btn.Position = xPos; btn.Text = text
+                btn.BackgroundColor3 = Color3.fromRGB(30,30,38); btn.BackgroundTransparency = 0.2
+                btn.TextColor3 = Color3.fromRGB(255,180,80); btn.Font = Enum.Font.GothamBold
+                btn.TextSize = 14; btn.BorderSizePixel = 0; btn.Parent = grabGui
+                Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
+                local s2 = Instance.new("UIStroke", btn)
+                s2.Color = Color3.fromRGB(255,80,0); s2.Thickness = 1.2; s2.Transparency = 0.4
+                btn.MouseButton1Down:Connect(onDown); btn.MouseButton1Up:Connect(onUp)
+                btn.TouchLongPress:Connect(onDown)
+                return btn
+            end
+            makeDepthBtn("◀\nNEAR", UDim2.new(0,10,0.5,-29),
+                function() mobilePullClose = true  end,
+                function() mobilePullClose = false end)
+            makeDepthBtn("FAR\n▶", UDim2.new(1,-68,0.5,-29),
+                function() mobilePushFar = true  end,
+                function() mobilePushFar = false end)
+
+            local throwBtn = Instance.new("TextButton")
+            throwBtn.Size = UDim2.new(0,90,0,28); throwBtn.Position = UDim2.new(0.5,-45,0,158)
+            throwBtn.Text = "🚀 THROW"; throwBtn.BackgroundColor3 = Color3.fromRGB(255,80,0)
+            throwBtn.TextColor3 = Color3.fromRGB(255,255,255); throwBtn.Font = Enum.Font.GothamBold
+            throwBtn.TextSize = 11; throwBtn.BorderSizePixel = 0; throwBtn.Parent = frame
+            Instance.new("UICorner", throwBtn).CornerRadius = UDim.new(0, 6)
+            throwBtn.Activated:Connect(function() if heldPart then throwItem() end end)
+        end
+    end
+
+    -- ── Cursor world pos ──────────────────────────────────────
+    local function getCursorWorldPos(screenPos)
+        local unitRay = Camera:ScreenPointToRay(screenPos.X, screenPos.Y)
+        local params = RaycastParams.new()
+        params.FilterDescendantsInstances = {Char, heldPart}
+        params.FilterType = Enum.RaycastFilterType.Exclude
+        return unitRay.Origin + unitRay.Direction * currentDepth
+    end
+
+    -- ── Grab ──────────────────────────────────────────────────
+    local function grabPart(part)
+        if heldPart then return end
+        if not isLoosePart(part) then return end
+        heldPart = part
+        currentDepth = holdDepth
+        origCollision[part] = part.CanCollide
+        part.CanCollide = false
+        removeHL(part)
+
+        if bodyGyro then bodyGyro:Destroy() end
+        bodyGyro = Instance.new("BodyGyro")
+        bodyGyro.MaxTorque = Vector3.new(1e6,1e6,1e6)
+        bodyGyro.P = 1e5; bodyGyro.D = 500
+        bodyGyro.CFrame = part.CFrame; bodyGyro.Parent = part
+
+        if bodyVelocity then bodyVelocity:Destroy() end
+        bodyVelocity = Instance.new("BodyVelocity")
+        bodyVelocity.Velocity = Vector3.zero
+        bodyVelocity.MaxForce = Vector3.new(1e8,1e8,1e8)
+        bodyVelocity.P = 1e5; bodyVelocity.Parent = part
+
+        local gravComp = Workspace.Gravity * part:GetMass() * 0.016
+
+        if Connections.GrabHB then Connections.GrabHB:Disconnect() end
+        Connections.GrabHB = RunService.Heartbeat:Connect(function()
+            if not heldPart or not bodyVelocity or not bodyVelocity.Parent then
+                if Connections.GrabHB then Connections.GrabHB:Disconnect(); Connections.GrabHB = nil end
+                return
+            end
+            local zDown = UIS:IsKeyDown(Enum.KeyCode.Z) or mobilePullClose
+            local xDown = UIS:IsKeyDown(Enum.KeyCode.X) or mobilePushFar
+            if zDown then currentDepth = math.max(depthMin, currentDepth - depthStep)
+            elseif xDown then currentDepth = math.min(depthMax, currentDepth + depthStep) end
+
+            local screenPos = isMobile and touchPos or Vector2.new(Mouse.X, Mouse.Y)
+            local targetPos = getCursorWorldPos(screenPos)
+            local diff = targetPos - heldPart.Position
+            local dist = diff.Magnitude
+            local speed = math.clamp(dist * 25, 0, 500)
+            bodyVelocity.Velocity = dist > 0.05
+                and (diff.Unit * speed + Vector3.new(0, gravComp, 0))
+                or Vector3.new(0, gravComp, 0)
+        end)
+
+        if statusLabel then
+            statusLabel.Text = "Status: Holding "..part.Name
+            statusLabel.TextColor3 = Color3.fromRGB(255, 180, 80)
+        end
+    end
+
+    -- ── Throw ─────────────────────────────────────────────────
+    function throwItem()
+        if not heldPart then return end
+        local part = heldPart; heldPart = nil
+        if Connections.GrabHB then Connections.GrabHB:Disconnect(); Connections.GrabHB = nil end
+        if bodyVelocity then bodyVelocity:Destroy(); bodyVelocity = nil end
+        if bodyGyro     then bodyGyro:Destroy();     bodyGyro = nil     end
+        if origCollision[part] ~= nil then part.CanCollide = origCollision[part]; origCollision[part] = nil end
+        currentDepth = holdDepth
+        local tv = Instance.new("BodyVelocity")
+        tv.Velocity = Camera.CFrame.LookVector * throwForce + Vector3.new(0, throwUpForce, 0)
+        tv.MaxForce = Vector3.new(1e6,1e6,1e6); tv.Parent = part
+        game:GetService("Debris"):AddItem(tv, 0.35)
+        if statusLabel then statusLabel.Text = "Status: Idle"; statusLabel.TextColor3 = Color3.fromRGB(100,255,100) end
+    end
+
+    -- ── Drop ──────────────────────────────────────────────────
+    local function dropItem()
+        if not heldPart then return end
+        local part = heldPart; heldPart = nil
+        if Connections.GrabHB then Connections.GrabHB:Disconnect(); Connections.GrabHB = nil end
+        if bodyVelocity then bodyVelocity:Destroy(); bodyVelocity = nil end
+        if bodyGyro     then bodyGyro:Destroy();     bodyGyro = nil     end
+        if origCollision[part] ~= nil then part.CanCollide = origCollision[part]; origCollision[part] = nil end
+        currentDepth = holdDepth
+        if statusLabel then statusLabel.Text = "Status: Idle"; statusLabel.TextColor3 = Color3.fromRGB(100,255,100) end
+    end
+
+    -- ── Build tool ────────────────────────────────────────────
+    local grabTool = Instance.new("Tool")
+    grabTool.Name = "Grab"; grabTool.RequiresHandle = false; grabTool.ToolTip = "Grab & Throw"
+    local handle = Instance.new("Part")
+    handle.Name = "Handle"; handle.Size = Vector3.new(0.5,0.5,0.5)
+    handle.Transparency = 1; handle.CanCollide = false; handle.Parent = grabTool
+
+    -- PC input
+    grabTool.Activated:Connect(function()
+        if heldPart then throwItem(); return end
+        local unitRay = Camera:ScreenPointToRay(Mouse.X, Mouse.Y)
+        local params = RaycastParams.new()
+        params.FilterDescendantsInstances = {Char}
+        params.FilterType = Enum.RaycastFilterType.Exclude
+        local result = Workspace:Raycast(unitRay.Origin, unitRay.Direction * grabRange, params)
+        if result and result.Instance and isLoosePart(result.Instance) then
+            grabPart(result.Instance)
+        end
+    end)
+
+    Connections.GrabInput = UIS.InputBegan:Connect(function(input, processed)
+        if processed or not toolEquipped then return end
+        if input.KeyCode == Enum.KeyCode.F and heldPart then throwItem() end
+        if input.UserInputType == Enum.UserInputType.MouseButton2 then dropItem() end
+    end)
+
+    -- Mobile input
+    if isMobile then
+        local grabbing = false
+        Connections.GrabTouchS = UIS.TouchStarted:Connect(function(touch, processed)
+            if processed or not toolEquipped then return end
+            touchPos = Vector2.new(touch.Position.X, touch.Position.Y)
+            if heldPart then return end
+            local unitRay = Camera:ScreenPointToRay(touch.Position.X, touch.Position.Y)
+            local params = RaycastParams.new()
+            params.FilterDescendantsInstances = {Char}
+            params.FilterType = Enum.RaycastFilterType.Exclude
+            local result = Workspace:Raycast(unitRay.Origin, unitRay.Direction * grabRange, params)
+            if result and result.Instance and isLoosePart(result.Instance) then
+                grabbing = true; grabPart(result.Instance)
+            end
+        end)
+        Connections.GrabTouchM = UIS.TouchMoved:Connect(function(touch, processed)
+            touchPos = Vector2.new(touch.Position.X, touch.Position.Y)
+        end)
+        Connections.GrabTouchE = UIS.TouchEnded:Connect(function(touch, processed)
+            if grabbing and heldPart then throwItem(); grabbing = false end
+        end)
+    end
+
+    -- Equip / Unequip
+    grabTool.Equipped:Connect(function()
+        toolEquipped = true
+        createGUI()
+        startScanner()
+    end)
+    grabTool.Unequipped:Connect(function()
+        toolEquipped = false
+        mobilePullClose = false; mobilePushFar = false
+        dropItem()
+        stopScanner()
+        if grabGui then grabGui:Destroy(); grabGui = nil end
+        statusLabel = nil
+    end)
+
+    grabTool.Parent = LP:WaitForChild("Backpack")
+end)
+
 -- ACTIVATE
+
+-- ============================================================
+-- ;w COMMAND HANDLER (chat prefix)
+-- ============================================================
+-- Usage in chat: ;w <partial hack name>
+-- If a target is set, hacks that use State.Target will affect them.
+-- Fires the matching toggle just like clicking it in the GUI.
+task.spawn(function()
+    local ok, tcs = pcall(function() return game:GetService("TextChatService") end)
+    if not ok or not tcs then return end
+    local ch
+    pcall(function()
+        ch = tcs:FindFirstChild("RBXGeneral", true)
+            or tcs:WaitForChild("TextChannels", 3):FindFirstChildOfClass("TextChannel")
+    end)
+    if not ch then return end
+    ch.MessageReceived:Connect(function(msg)
+        if not msg.TextSource or msg.TextSource.UserId ~= LP.UserId then return end
+        local text = msg.Text:lower():gsub("^%s+",""):gsub("%s+$","")
+        if text:sub(1,2) ~= ";w" then return end
+        local query = text:sub(3):gsub("^%s+","")
+        if query == "" then return end
+        -- Special sub-commands
+        if query:sub(1,7) == "target " then
+            local name = query:sub(8)
+            local t = findTarget(name)
+            setTarget(t)
+            return
+        end
+        if query == "clear" or query == "untarget" then
+            setTarget(nil)
+            return
+        end
+        -- Fire the first matching hack toggle
+        for _, hack in ipairs(allHacks) do
+            if hack.label:lower():find(query, 1, true) then
+                hack.frame.MouseButton1Click:Fire()
+                return
+            end
+        end
+    end)
+end)
+
 -- ============================================================
 switchTab("combat")
 
