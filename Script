@@ -134,7 +134,179 @@ local function makeDraggable(handle, target)
 end
 
 -- ============================================================
--- MAIN GUI  — visible from the moment the script starts
+-- WELCOME SCREEN
+-- ============================================================
+local WelcomeFrame = Instance.new("Frame")
+WelcomeFrame.Size = UDim2.new(1, 0, 1, 0)
+WelcomeFrame.BackgroundColor3 = Color3.fromRGB(6, 4, 16)
+WelcomeFrame.BorderSizePixel = 0
+WelcomeFrame.ZIndex = 150
+WelcomeFrame.Parent = ScreenGui
+
+local bgOver = Instance.new("Frame")
+bgOver.Size = UDim2.new(1, 0, 1, 0)
+bgOver.BackgroundColor3 = Color3.fromRGB(20, 8, 50)
+bgOver.BackgroundTransparency = 0.4
+bgOver.BorderSizePixel = 0
+bgOver.ZIndex = 151
+bgOver.Parent = WelcomeFrame
+mkGrad(bgOver, Color3.fromRGB(30, 10, 70), Color3.fromRGB(6, 2, 20), 135)
+
+-- Pulsing background orbs
+local function makeOrb(px, py, sz, col)
+    local orb = Instance.new("Frame")
+    orb.Size = UDim2.new(0, sz, 0, sz)
+    orb.Position = UDim2.new(px, -sz/2, py, -sz/2)
+    orb.BackgroundColor3 = col
+    orb.BackgroundTransparency = 0.65
+    orb.BorderSizePixel = 0
+    orb.ZIndex = 152
+    mkCorner(orb, sz/2)
+    orb.Parent = WelcomeFrame
+    local function pulse()
+        tw(orb, {BackgroundTransparency = 0.45}, 1.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+        task.delay(1.8, function()
+            tw(orb, {BackgroundTransparency = 0.78}, 1.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+            task.delay(1.8, pulse)
+        end)
+    end
+    pulse()
+end
+
+makeOrb(0.1,  0.15, 300, Color3.fromRGB(100, 30, 210))
+makeOrb(0.82, 0.78, 260, Color3.fromRGB(60,  15, 160))
+makeOrb(0.55, 0.42, 190, Color3.fromRGB(160, 50, 255))
+makeOrb(0.28, 0.82, 140, Color3.fromRGB(80,  20, 180))
+
+-- Card
+local cardW = isMobile and 340 or 400
+local Card = Instance.new("Frame")
+Card.Size = UDim2.new(0, cardW, 0, 470)
+Card.Position = UDim2.new(0.5, -cardW/2, 0.5, -235)
+Card.BackgroundColor3 = Color3.fromRGB(12, 8, 26)
+Card.BackgroundTransparency = 0.05
+Card.BorderSizePixel = 0
+Card.ZIndex = 152
+Card.Parent = WelcomeFrame
+mkCorner(Card, 22)
+mkStroke(Card, Color3.fromRGB(140, 60, 255), 1.5, 0.2)
+
+local wStrip = Instance.new("Frame")
+wStrip.Size = UDim2.new(1, 0, 0, 5)
+wStrip.BackgroundColor3 = Color3.fromRGB(120, 50, 255)
+wStrip.BorderSizePixel = 0
+wStrip.ZIndex = 153
+wStrip.Parent = Card
+mkCorner(wStrip, 3)
+mkGrad(wStrip, Color3.fromRGB(200, 100, 255), Color3.fromRGB(80, 20, 200), 0)
+
+local Logo = newLabel(Card, "⚡ WindySide", Enum.Font.GothamBlack, isMobile and 32 or 38, Color3.fromRGB(255,255,255), 153)
+Logo.Size = UDim2.new(1, 0, 0, 48)
+Logo.Position = UDim2.new(0, 0, 0, 18)
+mkGrad(Logo, Color3.fromRGB(220, 150, 255), Color3.fromRGB(110, 50, 255), 0)
+
+local WSub = newLabel(Card, "ULTIMATE EXPLOIT SUITE  •  DELTA EDITION", Enum.Font.GothamBold, 10, Color3.fromRGB(130, 80, 220), 153)
+WSub.Size = UDim2.new(1, 0, 0, 18)
+WSub.Position = UDim2.new(0, 0, 0, 68)
+
+local WDiv = Instance.new("Frame")
+WDiv.Size = UDim2.new(0.65, 0, 0, 1)
+WDiv.Position = UDim2.new(0.175, 0, 0, 96)
+WDiv.BackgroundColor3 = Color3.fromRGB(110, 50, 220)
+WDiv.BackgroundTransparency = 0.5
+WDiv.BorderSizePixel = 0
+WDiv.ZIndex = 153
+WDiv.Parent = Card
+
+-- Avatar ring
+local AvatarRing = Instance.new("Frame")
+AvatarRing.Size = UDim2.new(0, 96, 0, 96)
+AvatarRing.Position = UDim2.new(0.5, -48, 0, 110)
+AvatarRing.BackgroundColor3 = Color3.fromRGB(130, 50, 255)
+AvatarRing.BorderSizePixel = 0
+AvatarRing.ZIndex = 153
+AvatarRing.Parent = Card
+mkCorner(AvatarRing, 48)
+mkGrad(AvatarRing, Color3.fromRGB(200, 100, 255), Color3.fromRGB(80, 20, 200), 135)
+
+local Avatar = Instance.new("ImageLabel")
+Avatar.Size = UDim2.new(1, -6, 1, -6)
+Avatar.Position = UDim2.new(0, 3, 0, 3)
+Avatar.Image = "rbxthumb://type=AvatarHeadShot&id=" .. LP.UserId .. "&w=420&h=420"
+Avatar.BackgroundColor3 = Color3.fromRGB(18, 12, 36)
+Avatar.BorderSizePixel = 0
+Avatar.ZIndex = 154
+Avatar.Parent = AvatarRing
+mkCorner(Avatar, 45)
+
+local WelcomeText = newLabel(Card, "Welcome, " .. LP.Name .. "!!!", Enum.Font.GothamBold, isMobile and 20 or 24, Color3.fromRGB(240, 215, 255), 153)
+WelcomeText.Size = UDim2.new(1, -20, 0, 36)
+WelcomeText.Position = UDim2.new(0, 10, 0, 218)
+
+local WelcomeSub = newLabel(Card, "Ready to dominate? Let's get it 🔥", Enum.Font.Gotham, 13, Color3.fromRGB(140, 100, 190), 153)
+WelcomeSub.Size = UDim2.new(1, -20, 0, 20)
+WelcomeSub.Position = UDim2.new(0, 10, 0, 256)
+
+-- Stats row
+local StatsRow = Instance.new("Frame")
+StatsRow.Size = UDim2.new(1, -30, 0, 60)
+StatsRow.Position = UDim2.new(0, 15, 0, 286)
+StatsRow.BackgroundColor3 = Color3.fromRGB(20, 14, 40)
+StatsRow.BorderSizePixel = 0
+StatsRow.ZIndex = 153
+StatsRow.Parent = Card
+mkCorner(StatsRow, 12)
+mkStroke(StatsRow, Color3.fromRGB(80, 40, 160), 1, 0.5)
+
+local statsLayout = Instance.new("UIListLayout")
+statsLayout.FillDirection = Enum.FillDirection.Horizontal
+statsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+statsLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+statsLayout.Parent = StatsRow
+
+local function mkStat(lbl, val)
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(0.333, 0, 1, 0)
+    f.BackgroundTransparency = 1
+    f.ZIndex = 154
+    f.Parent = StatsRow
+    local v = newLabel(f, val, Enum.Font.GothamBlack, 17, Color3.fromRGB(190, 130, 255), 154)
+    v.Size = UDim2.new(1, 0, 0.55, 0)
+    v.Position = UDim2.new(0, 0, 0.05, 0)
+    local l = newLabel(f, lbl, Enum.Font.Gotham, 10, Color3.fromRGB(110, 80, 150), 154)
+    l.Size = UDim2.new(1, 0, 0.4, 0)
+    l.Position = UDim2.new(0, 0, 0.6, 0)
+end
+
+local wAge = LP.AccountAge
+mkStat("ACCOUNT AGE", wAge >= 365 and math.floor(wAge/365).."y" or wAge.."d")
+mkStat("HACKS", "302")
+mkStat("EXECUTOR", "Delta")
+
+-- Enter button
+local EnterBtn = Instance.new("TextButton")
+EnterBtn.Size = UDim2.new(1, -30, 0, isMobile and 60 or 50)
+EnterBtn.Position = UDim2.new(0, 15, 0, 360)
+EnterBtn.Text = "⚡  ENTER WINDYSIDE"
+EnterBtn.Font = Enum.Font.GothamBold
+EnterBtn.TextSize = 16
+EnterBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+EnterBtn.BackgroundColor3 = Color3.fromRGB(110, 40, 220)
+EnterBtn.BorderSizePixel = 0
+EnterBtn.ZIndex = 153
+EnterBtn.Parent = Card
+mkCorner(EnterBtn, 14)
+mkGrad(EnterBtn, Color3.fromRGB(160, 70, 255), Color3.fromRGB(80, 20, 180), 90)
+mkStroke(EnterBtn, Color3.fromRGB(200, 120, 255), 1, 0.3)
+EnterBtn.MouseEnter:Connect(function() tw(EnterBtn, {BackgroundColor3 = Color3.fromRGB(140, 60, 255)}, 0.15) end)
+EnterBtn.MouseLeave:Connect(function() tw(EnterBtn, {BackgroundColor3 = Color3.fromRGB(110, 40, 220)}, 0.15) end)
+
+local VerLabel = newLabel(Card, "v5.0  •  WindySide  •  Delta Build", Enum.Font.Gotham, 10, Color3.fromRGB(80, 55, 120), 153)
+VerLabel.Size = UDim2.new(1, 0, 0, 16)
+VerLabel.Position = UDim2.new(0, 0, 0, 444)
+
+-- ============================================================
+-- MAIN GUI  — hidden until EnterBtn is clicked
 -- ============================================================
 local guiW      = isMobile and 310 or 295
 local guiH      = isMobile and 600 or 590
@@ -150,7 +322,7 @@ MainGui.Position         = UDim2.new(0, 10, 0.5, -guiH/2)
 MainGui.BackgroundColor3 = Color3.fromRGB(9, 6, 20)
 MainGui.BorderSizePixel  = 0
 MainGui.Active           = true
-MainGui.Visible          = true
+MainGui.Visible          = false  -- shown when Enter is clicked
 MainGui.ZIndex           = 100  -- high so it's always on top
 MainGui.Parent           = ScreenGui
 mkCorner(MainGui, 16)
@@ -7325,6 +7497,28 @@ task.defer(function()
     if WindyOrbToggleBtn then
         WindyOrbToggleBtn.MouseButton1Click:Fire()
     end
+end)
+
+-- EnterBtn: fade out welcome screen, slide in main GUI
+EnterBtn.MouseButton1Click:Connect(function()
+    for _, v in pairs(WelcomeFrame:GetDescendants()) do
+        if v:IsA("GuiObject") then
+            tw(v, {BackgroundTransparency = 1}, 0.3)
+            if v:IsA("TextLabel") or v:IsA("TextButton") then
+                tw(v, {TextTransparency = 1}, 0.3)
+            end
+            if v:IsA("ImageLabel") then
+                tw(v, {ImageTransparency = 1}, 0.3)
+            end
+        end
+    end
+    tw(WelcomeFrame, {BackgroundTransparency = 1}, 0.35)
+    task.wait(0.4)
+    WelcomeFrame.Visible = false
+    -- Slide main GUI up from below
+    MainGui.Position = UDim2.new(0, 10, 1.5, 0)
+    MainGui.Visible = true
+    tw(MainGui, {Position = UDim2.new(0, 10, 0.5, -guiH/2)}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 end)
 
 print("✅ WindySide v5 loaded | " .. LP.Name .. " | Mobile: " .. tostring(isMobile))
